@@ -1,0 +1,159 @@
+<div class="dashboard-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2>Dashboard</h2>
+      <p>Live-Übersicht deines 3D-Druck-Pools, Drucker-Status, Aufträge und Filament-Bestand.</p>
+    </div>
+    <button (click)="loadMetrics()" class="btn-refresh" title="Aktualisieren">
+      <span>🔄</span> Aktualisieren
+    </button>
+  </div>
+
+  <!-- Loading & Error States -->
+  <div *ngIf="loading" class="state-card loading-state">
+    <div class="loading-spinner"></div>
+    <span>Lade Dashboard-Daten...</span>
+  </div>
+
+  <div *ngIf="error" class="state-card error-state">
+    <span>Fehler beim Laden der Metriken vom Server.</span>
+    <button (click)="loadMetrics()" class="btn-retry">Erneut versuchen</button>
+  </div>
+
+  <div *ngIf="!loading && !error && metrics" class="dashboard-content">
+    <!-- Clickable Metric Navigation Cards -->
+    <div class="metrics-grid">
+      <!-- Card 1: Active Jobs -->
+      <div 
+        class="metric-card card-blue clickable" 
+        [routerLink]="['/jobs']" 
+        title="Klicken um zum Job-Board (Aktive Drucke) zu gelangen"
+      >
+        <div class="card-top">
+          <div class="metric-icon-bubble">⚙️</div>
+          <span class="nav-hint">Öffnen ➜</span>
+        </div>
+        <div class="metric-title">Aktive Druckaufträge</div>
+        <div class="metric-value">{{ metrics.activeJobsCount }}</div>
+        <div class="metric-desc">Drucker sind derzeit ausgelastet</div>
+      </div>
+
+      <!-- Card 2: Filament Vorrat (with Count and Total Weight) -->
+      <div 
+        class="metric-card card-green clickable" 
+        [routerLink]="['/filaments']" 
+        title="Klicken um zur Filament-Verwaltung zu gelangen"
+      >
+        <div class="card-top">
+          <div class="metric-icon-bubble">🧶</div>
+          <span class="nav-hint">Öffnen ➜</span>
+        </div>
+        <div class="metric-title">Filament-Vorrat</div>
+        <div class="metric-value-row">
+          <span class="metric-value-highlight">{{ metrics.totalFilamentsCount }} Spulen</span>
+          <span class="metric-value-sub">· {{ metrics.totalFilamentWeightKg }} kg</span>
+        </div>
+        <div class="metric-desc">Gesamtgewicht über alle Spulen im Lager</div>
+      </div>
+
+      <!-- Card 3: Queued Jobs -->
+      <div 
+        class="metric-card card-purple clickable" 
+        [routerLink]="['/jobs']" 
+        title="Klicken um zum Job-Board (Warteschlange) zu gelangen"
+      >
+        <div class="card-top">
+          <div class="metric-icon-bubble">⏳</div>
+          <span class="nav-hint">Öffnen ➜</span>
+        </div>
+        <div class="metric-title">Wartende Aufträge</div>
+        <div class="metric-value">{{ metrics.queuedJobsCount }}</div>
+        <div class="metric-desc">In der Prioritäts-Warteschlange</div>
+      </div>
+
+      <!-- Card 4: Printer Pool Quick Link -->
+      <div 
+        class="metric-card card-cyan clickable" 
+        [routerLink]="['/printers']" 
+        title="Klicken um zur Drucker-Verwaltung zu gelangen"
+      >
+        <div class="card-top">
+          <div class="metric-icon-bubble">🖨️</div>
+          <span class="nav-hint">Öffnen ➜</span>
+        </div>
+        <div class="metric-title">Drucker-Pool</div>
+        <div class="metric-value">{{ metrics.printers ? metrics.printers.length : 0 }}</div>
+        <div class="metric-desc">Verfügbare 3D-Drucker im Pool</div>
+      </div>
+    </div>
+
+    <!-- Live Printer Status Section -->
+    <div class="dashboard-section" *ngIf="metrics.printers && metrics.printers.length > 0">
+      <div class="section-header">
+        <div class="section-title-group">
+          <h3>🖨️ Drucker-Status & Live-Übersicht</h3>
+          <p>Echtzeit-Status aller Drucker im Pool mit aktuellen Druckaufträgen.</p>
+        </div>
+        <button [routerLink]="['/printers']" class="btn-section-nav">
+          Alle Drucker verwalten ➜
+        </button>
+      </div>
+
+      <div class="printers-status-grid">
+        <div 
+          *ngFor="let p of metrics.printers" 
+          class="printer-live-card" 
+          [ngClass]="'status-' + p.status"
+          [routerLink]="['/printers']"
+        >
+          <!-- Top Row: Name and Status Badge -->
+          <div class="printer-card-header">
+            <div class="printer-info">
+              <span class="printer-name">{{ p.name }}</span>
+              <span class="printer-model" *ngIf="p.model">{{ p.model }}</span>
+            </div>
+            <span class="printer-status-badge" [ngClass]="'badge-' + p.status">
+              <span class="status-dot"></span>
+              {{ getPrinterStatusLabel(p.status) }}
+            </span>
+          </div>
+
+          <!-- Active Job Details if Printing -->
+          <div *ngIf="p.status === 'printing' && p.currentJob" class="printer-job-details">
+            <div class="job-name-row">
+              <span class="job-icon">📄</span>
+              <span class="job-name" [title]="p.currentJob.title">{{ p.currentJob.title }}</span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="job-progress-wrapper">
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" [style.width.%]="p.currentJob.progress"></div>
+              </div>
+              <span class="progress-text">{{ p.currentJob.progress }}%</span>
+            </div>
+
+            <!-- Filament and Duration -->
+            <div class="job-meta-row">
+              <span *ngIf="p.currentJob.filament" class="job-filament-info">
+                <span class="filament-dot" [style.background-color]="p.currentJob.filament.colorHex"></span>
+                {{ p.currentJob.filament.manufacturer }} {{ p.currentJob.filament.material }} ({{ p.currentJob.filament.colorName }})
+              </span>
+              <span *ngIf="p.currentJob.timeNeeded" class="job-time-info">
+                ⏱️ {{ p.currentJob.timeNeeded }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Idle or other state -->
+          <div *ngIf="p.status !== 'printing' || !p.currentJob" class="printer-idle-details">
+            <span *ngIf="p.status === 'idle'" class="idle-text">Bereit für den nächsten Druckauftrag</span>
+            <span *ngIf="p.status === 'maintenance'" class="maintenance-text">⚠️ Wartungsmodus aktiv</span>
+            <span *ngIf="p.status === 'offline'" class="offline-text">Drucker derzeit offline</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

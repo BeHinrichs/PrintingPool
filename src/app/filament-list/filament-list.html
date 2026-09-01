@@ -1,0 +1,930 @@
+<div class="filaments-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2>Filament-Verwaltung</h2>
+      <p>Verwalte Spulen, relationale Material-Vorgaben, Standard- & Mehrfarbfilamente, Druckparameter und Füllstände.</p>
+    </div>
+    <button (click)="toggleForm()" class="btn-primary" id="btn-toggle-filament-form">
+      <span class="btn-icon">{{ showForm ? '✕' : '＋' }}</span>
+      <span>{{ showForm ? (editingFilament ? 'Bearbeiten abbrechen' : 'Abbrechen') : 'Neues Filament' }}</span>
+    </button>
+  </div>
+
+  <!-- Form for New / Edit Filament -->
+  <div *ngIf="showForm" class="filament-form-card" [class.is-editing]="editingFilament !== null">
+    <div class="form-header">
+      <div class="form-header-title">
+        <span class="form-badge">{{ editingFilament ? 'Modus: Bearbeiten' : 'Neu anlegen' }}</span>
+        <h3>{{ editingFilament ? 'Filament bearbeiten: ' + formManufacturer + ' ' + formColorName : 'Neues Filament anlegen' }}</h3>
+      </div>
+      <p class="form-subtitle">Erfasse alle Spezifikationen, Farbvarianten, Druckparameter und lade bis zu 2 Fotos hoch.</p>
+    </div>
+
+    <!-- Section 1: Grunddaten -->
+    <div class="form-section">
+      <h4 class="section-title">1. Grunddaten & Material (3NF)</h4>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="input-manufacturer">Hersteller *</label>
+          <input 
+            id="input-manufacturer" 
+            [(ngModel)]="formManufacturer" 
+            placeholder="z.B. Prusament, Sunlu, Polymaker, Extrudr" 
+            list="manufacturers-list"
+            class="form-control" 
+          />
+          <datalist id="manufacturers-list">
+            <option *ngFor="let m of manufacturerSuggestions" [value]="m"></option>
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label for="select-material">Material (Relation) *</label>
+          <select 
+            id="select-material" 
+            [ngModel]="formMaterialId" 
+            (ngModelChange)="onMaterialIdChange($event)"
+            class="form-control"
+          >
+            <option *ngFor="let mat of materials" [value]="mat.id">
+              {{ mat.name }} ({{ mat.tempNozzleMin }}-{{ mat.tempNozzleMax }}°C, Lüfter: {{ mat.fanModel }}%)
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="select-color-family">Farbbereich / Gruppe</label>
+          <select id="select-color-family" [(ngModel)]="formColorFamily" class="form-control">
+            <option value="">-- Automatisch / Keine Angabe --</option>
+            <option *ngFor="let fam of colorFamilies" [value]="fam.key">
+              {{ fam.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="select-finish-effect">Spezialeffekt / Finish</label>
+          <select id="select-finish-effect" [(ngModel)]="formFinishEffect" class="form-control">
+            <option value="standard">Standard (Klassisch)</option>
+            <option value="silk">🧵 Silk / Seidenglanz</option>
+            <option value="matte">🌑 Matt</option>
+            <option value="glitter">✨ Glitzer / Sparkle</option>
+            <option value="wood">🪵 Holzoptik (Wood)</option>
+            <option value="glow">💡 Glow in the Dark (Fluoreszierend)</option>
+            <option value="carbon">🔬 Carbon Fiber (CF)</option>
+            <option value="translucent">🧊 Transparent / Transluzent</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Farben & Farbtyp mit Standardfarben-Schnellwahl -->
+    <div class="form-section">
+      <h4 class="section-title">2. Farbe & Standardfarben-Schnellwahl (3NF)</h4>
+      
+      <!-- Color Type Selector -->
+      <div class="color-type-toolbar">
+        <label class="toolbar-label">Farbart:</label>
+        <div class="type-buttons">
+          <button 
+            type="button" 
+            class="btn-type-toggle" 
+            [class.active]="formColorType === 'single'"
+            (click)="formColorType = 'single'"
+          >
+            <span class="type-icon">●</span> 1-Farbig
+          </button>
+          <button 
+            type="button" 
+            class="btn-type-toggle" 
+            [class.active]="formColorType === 'dual'"
+            (click)="formColorType = 'dual'"
+          >
+            <span class="type-icon">🌗</span> 2-Farbig (Dual)
+          </button>
+          <button 
+            type="button" 
+            class="btn-type-toggle" 
+            [class.active]="formColorType === 'tri'"
+            (click)="formColorType = 'tri'"
+          >
+            <span class="type-icon">🎯</span> 3-Farbig (Tri-Color)
+          </button>
+          <button 
+            type="button" 
+            class="btn-type-toggle" 
+            [class.active]="formColorType === 'gradient'"
+            (click)="formColorType = 'gradient'"
+          >
+            <span class="type-icon">🌈</span> Farbverlauf (Rainbow)
+          </button>
+        </div>
+      </div>
+
+      <!-- Schnellwahl Standardfarben Palette (Slot 1) -->
+      <div class="quick-colors-palette-box">
+        <div class="palette-header">
+          <span class="palette-title">⚡ Schnellwahl Standard- & Basisfarben (Hauptfarbe):</span>
+          <span class="palette-subtitle">Klicke auf eine Farbe um Name, Hex-Code und Gruppe direkt zu übernehmen.</span>
+        </div>
+        <div class="palette-chips-grid">
+          <button 
+            *ngFor="let col of colors" 
+            type="button" 
+            class="palette-color-chip"
+            [class.selected]="formColorHex.toLowerCase() === col.hexCode.toLowerCase()"
+            (click)="selectStandardColor(col, 1)"
+            [title]="col.name + ' (' + col.hexCode + ')'"
+          >
+            <span class="chip-dot" [style.background-color]="col.hexCode"></span>
+            <span class="chip-name">{{ col.name }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Slot 2 Quick Colors (If Dual / Tri / Gradient) -->
+      <div class="quick-colors-palette-box" *ngIf="formColorType !== 'single'">
+        <div class="palette-header">
+          <span class="palette-title">⚡ Schnellwahl für 2. Farbe:</span>
+        </div>
+        <div class="palette-chips-grid">
+          <button 
+            *ngFor="let col of colors" 
+            type="button" 
+            class="palette-color-chip"
+            [class.selected]="formColorHex2.toLowerCase() === col.hexCode.toLowerCase()"
+            (click)="selectStandardColor(col, 2)"
+            [title]="col.name + ' (' + col.hexCode + ')'"
+          >
+            <span class="chip-dot" [style.background-color]="col.hexCode"></span>
+            <span class="chip-name">{{ col.name }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Slot 3 Quick Colors (If Tri / Gradient) -->
+      <div class="quick-colors-palette-box" *ngIf="formColorType === 'tri' || formColorType === 'gradient'">
+        <div class="palette-header">
+          <span class="palette-title">⚡ Schnellwahl für 3. Farbe:</span>
+        </div>
+        <div class="palette-chips-grid">
+          <button 
+            *ngFor="let col of colors" 
+            type="button" 
+            class="palette-color-chip"
+            [class.selected]="formColorHex3.toLowerCase() === col.hexCode.toLowerCase()"
+            (click)="selectStandardColor(col, 3)"
+            [title]="col.name + ' (' + col.hexCode + ')'"
+          >
+            <span class="chip-dot" [style.background-color]="col.hexCode"></span>
+            <span class="chip-name">{{ col.name }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Specific Color Inputs & Fine Tuning -->
+      <div class="form-grid colors-grid" style="margin-top: 1rem;">
+        <div class="form-group">
+          <label for="input-color-name">Farbbezeichnung / Name *</label>
+          <input 
+            id="input-color-name" 
+            [(ngModel)]="formColorName" 
+            (input)="onColorNameInput()"
+            placeholder="z.B. Silk Gold / Schwarz / Kupfer oder Signalrot" 
+            class="form-control" 
+          />
+        </div>
+
+        <!-- Color 1 (Primary) -->
+        <div class="form-group">
+          <label for="input-color-hex">Farbe 1 (Hex / Farbwähler) *</label>
+          <div class="color-picker-wrapper">
+            <input id="input-color-hex" [(ngModel)]="formColorHex" type="color" class="color-input" />
+            <input [(ngModel)]="formColorHex" type="text" class="color-hex-text-input" placeholder="#000000" />
+          </div>
+        </div>
+
+        <!-- Color 2 (for dual, tri, gradient) -->
+        <div class="form-group" *ngIf="formColorType !== 'single'">
+          <label for="input-color-hex2">Farbe 2 (Hex / Farbwähler) *</label>
+          <div class="color-picker-wrapper">
+            <input id="input-color-hex2" [(ngModel)]="formColorHex2" type="color" class="color-input" />
+            <input [(ngModel)]="formColorHex2" type="text" class="color-hex-text-input" placeholder="#000000" />
+          </div>
+        </div>
+
+        <!-- Color 3 (for tri, gradient) -->
+        <div class="form-group" *ngIf="formColorType === 'tri' || formColorType === 'gradient'">
+          <label for="input-color-hex3">Farbe 3 (Hex / Farbwähler) {{ formColorType === 'gradient' ? '(optional)' : '*' }}</label>
+          <div class="color-picker-wrapper">
+            <input id="input-color-hex3" [(ngModel)]="formColorHex3" type="color" class="color-input" />
+            <input [(ngModel)]="formColorHex3" type="text" class="color-hex-text-input" placeholder="#000000" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Color Swatch Live Preview -->
+      <div class="live-swatch-preview">
+        <span class="preview-label">Live-Vorschau:</span>
+        <div 
+          class="preview-swatch-circle" 
+          [ngStyle]="getSwatchStyle({ colorHex: formColorHex, colorHex2: formColorHex2, colorHex3: formColorHex3, colorType: formColorType })"
+        ></div>
+        <div 
+          *ngIf="formColorType === 'gradient'"
+          class="preview-gradient-bar"
+          [style.background]="'linear-gradient(90deg, ' + formColorHex + ', ' + formColorHex2 + (formColorHex3 ? ', ' + formColorHex3 : '') + ')'"
+        ></div>
+        <span class="preview-info-text">
+          {{ formColorType === 'single' ? 'Einfarbiges Filament' : (formColorType === 'dual' ? '2-Farb Co-Extrusion' : (formColorType === 'tri' ? '3-Farb Co-Extrusion' : 'Farbverlauf / Rainbow')) }}
+          <ng-container *ngIf="formFinishEffect !== 'standard'">· {{ getEffectBadge(formFinishEffect)?.icon }} {{ getEffectBadge(formFinishEffect)?.label }}</ng-container>
+        </span>
+      </div>
+    </div>
+
+    <!-- Section 3: Schlagwörter / Tags -->
+    <div class="form-section">
+      <h4 class="section-title">3. Schlagwörter (Tags)</h4>
+      <p class="section-desc">Füge Suchbegriffe wie Farben, Einsatzbereiche oder Eigenschaften hinzu (z. B. <em>gold, schwarz, kupfer, silk, outdoor, deko</em>).</p>
+      
+      <div class="tag-input-wrapper">
+        <div class="tag-input-row">
+          <input 
+            type="text" 
+            [(ngModel)]="newTagInput" 
+            (keydown.enter)="addTagFromInput($event)"
+            (keydown.,)="addTagFromInput($event)"
+            placeholder="Schlagwort eingeben und Enter drücken..."
+            class="form-control tag-text-input"
+          />
+          <button type="button" (click)="addTagFromInput($event)" class="btn-add-tag">＋ Hinzufügen</button>
+        </div>
+
+        <!-- Tags Chips List -->
+        <div class="tags-chips-container" *ngIf="formTags.length > 0">
+          <span *ngFor="let tag of formTags; let i = index" class="tag-chip">
+            #{{ tag }}
+            <button type="button" (click)="removeTag(i)" class="btn-remove-tag" title="Tag entfernen">✕</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Druckparameter & Lüfter -->
+    <div class="form-section">
+      <div class="section-title-row">
+        <h4 class="section-title">4. Druckparameter & Lüftereinstellungen</h4>
+        <div class="fan-preset-buttons">
+          <span class="preset-label">Lüfter-Schnellwahl:</span>
+          <button type="button" (click)="setFanPreset('nofan')" class="btn-preset" title="Alle Lüfter auf 0% (ideal für ASA/ABS)">
+            🚫 Kein Lüfter (0%)
+          </button>
+          <button type="button" (click)="setFanPreset('material')" class="btn-preset" title="Auf Standardwerte des Materials zurücksetzen">
+            ⚡ Material-Standard
+          </button>
+          <button type="button" (click)="setFanPreset('max')" class="btn-preset" title="Alle Lüfter auf 100% (ideal für PLA)">
+            💨 Max Lüfter (100%)
+          </button>
+        </div>
+      </div>
+
+      <div class="form-grid parameters-grid">
+        <!-- Nozzle Temp Range -->
+        <div class="form-group">
+          <label>Düsentemperatur (°C)</label>
+          <div class="range-inputs-row">
+            <input [(ngModel)]="formTempNozzleMin" type="number" placeholder="Min" class="form-control temp-input" />
+            <span class="range-separator">bis</span>
+            <input [(ngModel)]="formTempNozzleMax" type="number" placeholder="Max" class="form-control temp-input" />
+            <span class="unit-text">°C</span>
+          </div>
+        </div>
+
+        <!-- Bed Temp Range -->
+        <div class="form-group">
+          <label>Druckbetttemperatur (°C)</label>
+          <div class="range-inputs-row">
+            <input [(ngModel)]="formTempBedMin" type="number" placeholder="Min" class="form-control temp-input" />
+            <span class="range-separator">bis</span>
+            <input [(ngModel)]="formTempBedMax" type="number" placeholder="Max" class="form-control temp-input" />
+            <span class="unit-text">°C</span>
+          </div>
+        </div>
+
+        <!-- Fan Speeds -->
+        <div class="form-group">
+          <label>Modell-Lüfter (%)</label>
+          <div class="fan-input-group">
+            <input [(ngModel)]="formFanModel" type="number" min="0" max="100" class="form-control" />
+            <span class="unit-text">%</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Gehäuse-Lüfter (%)</label>
+          <div class="fan-input-group">
+            <input [(ngModel)]="formFanChamber" type="number" min="0" max="100" class="form-control" />
+            <span class="unit-text">%</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Seiten-Lüfter (%)</label>
+          <div class="fan-input-group">
+            <input [(ngModel)]="formFanSide" type="number" min="0" max="100" class="form-control" />
+            <span class="unit-text">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: Gewicht & Status -->
+    <div class="form-section">
+      <h4 class="section-title">5. Gewicht & Lagerstatus</h4>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="input-weight-total">Gesamtgewicht (g)</label>
+          <input id="input-weight-total" [(ngModel)]="formWeightTotal" type="number" min="0" step="50" class="form-control" />
+        </div>
+
+        <div class="form-group">
+          <label for="input-weight-current">Aktuelles Restgewicht (g)</label>
+          <input id="input-weight-current" [(ngModel)]="formWeightCurrent" type="number" min="0" step="10" class="form-control" />
+        </div>
+
+        <div class="form-group">
+          <label for="select-status">Spulen-Status</label>
+          <select id="select-status" [(ngModel)]="formStatus" class="form-control">
+            <option value="active">Aktiv / Im Drucker einsatzbereit</option>
+            <option value="idle">Auf Lager / Trockenbox</option>
+            <option value="empty">Spule aufgebraucht / Leer</option>
+          </select>
+        </div>
+
+        <div class="form-group full-width" style="grid-column: 1 / -1;">
+          <label for="input-buy-url">🛒 Nachbestell-Link / Shop (z.B. Amazon, Hersteller-Webseite)</label>
+          <div class="buy-url-input-container">
+            <input 
+              id="input-buy-url" 
+              [(ngModel)]="formBuyUrl" 
+              type="url" 
+              placeholder="https://www.amazon.de/dp/... oder https://shop.prusa3d.com/..." 
+              class="form-control" 
+            />
+            <a *ngIf="formBuyUrl" [href]="formBuyUrl" target="_blank" class="btn-test-buy-link" title="Link im neuen Tab testen">
+              🔗 Testen
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6: Bilder Upload -->
+    <div class="upload-section">
+      <label class="section-label">Bilder (Max. 2 Dateien)</label>
+
+      <!-- If editing, show already saved images -->
+      <div *ngIf="editingFilament && editingFilament.images && editingFilament.images.length > 0" class="existing-images-row">
+        <span class="existing-label">Bereits gespeicherte Bilder:</span>
+        <div class="existing-images-grid">
+          <div *ngFor="let img of editingFilament.images" class="existing-img-card">
+            <img [src]="getImageUrl(img.filePath)" alt="Filament Foto" class="existing-img" />
+            <button type="button" (click)="deleteImage(editingFilament, img.id, $event)" class="btn-delete-saved-img" title="Dieses Bild löschen">
+              🗑️
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dropzone for new uploads -->
+      <div 
+        *ngIf="!editingFilament || (editingFilament.images && editingFilament.images.length + selectedFiles.length < 2)"
+        class="dropzone" 
+        [class.dragging]="isDragging"
+        [class.has-files]="selectedFiles.length > 0"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+      >
+        <input 
+          #fileInput 
+          type="file" 
+          id="file-upload-input"
+          accept="image/png, image/jpeg, image/webp, image/gif" 
+          multiple 
+          (change)="onFileSelected($event)" 
+          style="display: none;" 
+        />
+        <div class="dropzone-content">
+          <div class="upload-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+              <circle cx="9" cy="9" r="2"/>
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+            </svg>
+          </div>
+          <div class="dropzone-text">
+            <span class="primary-text">Bilder hierher ziehen oder <span class="highlight-link">durchsuchen</span></span>
+            <span class="secondary-text">PNG, JPG oder WEBP (max. 2 Bilder insgesamt, automatische Skalierung)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Error -->
+      <div *ngIf="uploadError" class="upload-error-banner">
+        ⚠️ {{ uploadError }}
+      </div>
+
+      <!-- Preview of newly selected files -->
+      <div *ngIf="selectedFiles.length > 0" class="preview-grid">
+        <div *ngFor="let file of selectedFiles; let i = index" class="preview-card">
+          <img [src]="filePreviews[i]" alt="Vorschau" class="preview-img" />
+          <div class="preview-info">
+            <span class="preview-name" [title]="file.name">{{ file.name }}</span>
+            <span class="preview-size">{{ (file.size / 1024).toFixed(1) }} KB (Neu)</span>
+          </div>
+          <button type="button" (click)="removeFile(i, $event)" class="btn-remove-preview" title="Bild entfernen">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <button (click)="resetForm()" type="button" class="btn-secondary" [disabled]="submitting">Abbrechen</button>
+      <button (click)="saveFilament()" type="button" class="btn-primary" [disabled]="submitting" id="btn-save-filament">
+        <span *ngIf="submitting" class="spinner"></span>
+        <span>{{ submitting ? 'Speichert...' : (editingFilament ? 'Änderungen speichern' : 'Filament speichern') }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading & Error States -->
+  <div *ngIf="loading" class="state-card loading-state">
+    <div class="loading-spinner"></div>
+    <span>Lade Filament-Bestand...</span>
+  </div>
+  
+  <div *ngIf="error" class="state-card error-state">
+    <span>Fehler beim Laden der Filamente. Bitte prüfe die Backend-Verbindung.</span>
+    <button (click)="loadFilaments()" class="btn-retry">Erneut versuchen</button>
+  </div>
+
+  <!-- Filter and Search Toolbar -->
+  <div *ngIf="!loading && !error" class="filter-toolbar-card">
+    <div class="filter-toolbar-grid">
+      <!-- Search Input -->
+      <div class="search-box-wrapper">
+        <div class="search-input-container">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            [(ngModel)]="filterSearch" 
+            placeholder="Suchen nach Hersteller, Material, Farbe oder Schlagwort..." 
+            class="search-input"
+          />
+          <button *ngIf="filterSearch" (click)="filterSearch = ''" class="btn-clear-search">✕</button>
+        </div>
+      </div>
+
+      <!-- Filter Controls Row -->
+      <div class="filter-controls-row">
+        <!-- Material Filter -->
+        <div class="filter-control-group">
+          <label class="filter-label">Material:</label>
+          <select [(ngModel)]="filterMaterial" class="filter-select">
+            <option value="all">Alle Materialien</option>
+            <option *ngFor="let mat of materials" [value]="mat.name">{{ mat.name }}</option>
+          </select>
+        </div>
+
+        <!-- Color Family Filter -->
+        <div class="filter-control-group">
+          <label class="filter-label">Farbbereich:</label>
+          <select [(ngModel)]="filterColorFamily" class="filter-select">
+            <option value="all">Alle Farbbereiche</option>
+            <option *ngFor="let fam of colorFamilies" [value]="fam.key">
+              {{ fam.label }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Type & Effect Filter -->
+        <div class="filter-control-group">
+          <label class="filter-label">Farbtyp / Effekt:</label>
+          <select [(ngModel)]="filterTypeEffect" class="filter-select">
+            <option value="all">Alle Typen & Effekte</option>
+            <optgroup label="Farbarten">
+              <option value="single">Nur Einfarbig</option>
+              <option value="multi">Nur Mehrfarbig (Dual/Tri/Gradient)</option>
+              <option value="dual">2-Farbig (Dual-Color)</option>
+              <option value="tri">3-Farbig (Tri-Color)</option>
+              <option value="gradient">Farbverlauf (Rainbow)</option>
+            </optgroup>
+            <optgroup label="Spezialeffekte">
+              <option value="glitter">✨ Glitzer / Sparkle</option>
+              <option value="wood">🪵 Holz (Wood)</option>
+              <option value="silk">🧵 Silk (Seide)</option>
+              <option value="matte">🌑 Matt</option>
+              <option value="glow">💡 Glow in the Dark</option>
+              <option value="carbon">🔬 Carbon Fiber</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="filter-control-group">
+          <label class="filter-label">Status:</label>
+          <select [(ngModel)]="filterStatus" class="filter-select">
+            <option value="all">Alle Status</option>
+            <option value="active">Aktiv / Im Drucker</option>
+            <option value="idle">Auf Lager</option>
+            <option value="empty">Leer</option>
+          </select>
+        </div>
+
+        <!-- Reset Button -->
+        <button 
+          *ngIf="hasActiveFilters" 
+          (click)="resetFilters()" 
+          class="btn-reset-filters" 
+          title="Alle Filter zurücksetzen"
+        >
+          <span>✕</span> Filter zurücksetzen
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Color Family Chips Strip -->
+    <div class="color-chips-strip">
+      <span class="chips-label">Farbbereiche:</span>
+      <button 
+        type="button" 
+        class="color-chip-btn" 
+        [class.active]="filterColorFamily === 'all'"
+        (click)="filterColorFamily = 'all'"
+      >
+        Alle
+      </button>
+      <button 
+        *ngFor="let fam of colorFamilies"
+        type="button" 
+        class="color-chip-btn"
+        [class.active]="filterColorFamily === fam.key"
+        (click)="filterColorFamily = (filterColorFamily === fam.key ? 'all' : fam.key)"
+      >
+        <span class="chip-color-dot" [style.background]="fam.iconColor"></span>
+        {{ fam.label.split(' ')[0] }}
+      </button>
+    </div>
+
+    <!-- Results Status Counter -->
+    <div class="filter-results-status">
+      <span class="results-count">
+        <strong>{{ filteredFilaments.length }}</strong> von {{ filaments.length }} Filamenten angezeigt
+      </span>
+      <span *ngIf="hasActiveFilters" class="active-filter-badge">
+        Filter aktiv
+      </span>
+    </div>
+  </div>
+
+  <!-- Filament Table Card -->
+  <div *ngIf="!loading && !error" class="filament-list-card">
+    <table class="filament-table">
+      <thead>
+        <tr>
+          <th style="width: 100px;">Bilder</th>
+          <th>Hersteller & Material</th>
+          <th>Farbe & Typ</th>
+          <th>Spezifikationen</th>
+          <th>Schlagwörter</th>
+          <th>Gewicht (Rest / Gesamt)</th>
+          <th>Status</th>
+          <th style="text-align: right; width: 170px;">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let f of filteredFilaments" class="filament-row">
+          <!-- Images Column -->
+          <td class="images-cell">
+            <div class="thumbnails-container">
+              <ng-container *ngIf="f.images && f.images.length > 0; else noImages">
+                <div 
+                  *ngFor="let img of f.images; let i = index" 
+                  class="thumb-wrapper" 
+                  (click)="openImageModal(f, i, $event)"
+                  [title]="'Klicken zum Vergrößern (Bild ' + (i+1) + ')'"
+                >
+                  <img [src]="getImageUrl(img.filePath)" [alt]="f.manufacturer + ' ' + (f.material?.name || '')" class="table-thumb" />
+                  <div class="thumb-hover-overlay">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <circle cx="11" cy="11" r="8"/>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                      <line x1="11" y1="8" x2="11" y2="14"/>
+                      <line x1="8" y1="11" x2="14" y2="11"/>
+                    </svg>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Placeholder / Add Image -->
+              <ng-template #noImages>
+                <div class="thumb-placeholder" title="Kein Bild vorhanden">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                </div>
+              </ng-template>
+
+              <!-- Upload direct action if < 2 images -->
+              <label 
+                *ngIf="(!f.images || f.images.length < 2)" 
+                class="thumb-add-btn" 
+                [title]="'Weiteres Bild hinzufügen (' + (f.images ? f.images.length : 0) + '/2)'"
+              >
+                <input 
+                  type="file" 
+                  accept="image/png, image/jpeg, image/webp, image/gif" 
+                  (change)="uploadImageToExisting(f, $event)" 
+                  style="display: none;" 
+                />
+                ＋
+              </label>
+            </div>
+          </td>
+
+          <!-- Manufacturer & Material -->
+          <td>
+            <div class="manufacturer-material-cell">
+              <span class="manufacturer-name">{{ f.manufacturer }}</span>
+              <span class="material-badge" [attr.data-material]="f.material?.name">
+                {{ f.material?.name || 'Material' }}
+              </span>
+            </div>
+          </td>
+
+          <!-- Color, Multi-Color Swatch, Effect Badge -->
+          <td>
+            <div class="color-cell">
+              <div 
+                class="color-swatch-badge" 
+                [ngStyle]="getSwatchStyle(f)"
+                [title]="f.colorName + (f.colorType !== 'single' ? ' (' + f.colorType + ')' : '')"
+              ></div>
+              <div class="color-details">
+                <div class="color-title-row">
+                  <span class="color-title">{{ f.colorName }}</span>
+                </div>
+                <div class="color-badges-row">
+                  <span *ngIf="getColorTypeBadge(f.colorType)" class="type-mini-badge">
+                    {{ getColorTypeBadge(f.colorType)?.icon }} {{ getColorTypeBadge(f.colorType)?.label }}
+                  </span>
+                  <span *ngIf="getEffectBadge(f.finishEffect)" class="effect-mini-badge">
+                    {{ getEffectBadge(f.finishEffect)?.icon }} {{ getEffectBadge(f.finishEffect)?.label }}
+                  </span>
+                  <span *ngIf="f.colorFamily" class="family-mini-badge">
+                    {{ f.colorFamily }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </td>
+
+          <!-- Specs (Temperatures & Fans) -->
+          <td>
+            <div class="specs-cell">
+              <div class="spec-item" *ngIf="f.tempNozzleMin || f.tempNozzleMax || f.material?.tempNozzleMin" title="Düsentemperatur">
+                <span class="spec-icon">🌡️</span>
+                <span class="spec-val">
+                  {{ f.tempNozzleMin || f.material?.tempNozzleMin }}-{{ f.tempNozzleMax || f.material?.tempNozzleMax }}°C
+                </span>
+              </div>
+              <div class="spec-item" *ngIf="f.tempBedMin || f.tempBedMax || f.material?.tempBedMin" title="Druckbetttemperatur">
+                <span class="spec-icon">🛏️</span>
+                <span class="spec-val">
+                  {{ f.tempBedMin || f.material?.tempBedMin }}-{{ f.tempBedMax || f.material?.tempBedMax }}°C
+                </span>
+              </div>
+              <div class="spec-item" *ngIf="f.fanModel !== null && f.fanModel !== undefined" title="Lüftereinstellung">
+                <span class="spec-icon">💨</span>
+                <span class="spec-val" [class.fan-zero]="f.fanModel === 0">
+                  {{ f.fanModel === 0 ? 'Kein Lüfter (0%)' : f.fanModel + '%' }}
+                </span>
+              </div>
+              <div class="spec-item spec-empty" *ngIf="!f.tempNozzleMin && !f.tempNozzleMax && !f.tempBedMin && (f.fanModel === null || f.fanModel === undefined)">
+                <span>Standard</span>
+              </div>
+            </div>
+          </td>
+
+          <!-- Schlagwörter / Tags -->
+          <td>
+            <div class="tags-cell">
+              <ng-container *ngIf="f.tags && f.tags.length > 0; else noTags">
+                <span *ngFor="let tag of f.tags" class="table-tag-pill">
+                  #{{ tag }}
+                </span>
+              </ng-container>
+              <ng-template #noTags>
+                <span class="no-tags-text">-</span>
+              </ng-template>
+            </div>
+          </td>
+
+          <!-- Weight -->
+          <td>
+            <div class="weight-cell">
+              <div class="weight-inputs-row">
+                <input 
+                  #wInput 
+                  [value]="f.weightCurrent" 
+                  (change)="updateCurrentWeight(f, wInput.value)" 
+                  type="number" 
+                  min="0"
+                  class="weight-input" 
+                />
+                <span class="weight-unit">g</span>
+                <span class="weight-total">/ {{ f.weightTotal }}g</span>
+              </div>
+              <div class="weight-bar-bg">
+                <div 
+                  class="weight-bar-fill" 
+                  [style.width.%]="Math.min(100, (f.weightCurrent / f.weightTotal) * 100)"
+                  [class.low]="(f.weightCurrent / f.weightTotal) < 0.2"
+                ></div>
+              </div>
+            </div>
+          </td>
+
+          <!-- Status -->
+          <td>
+            <span class="status-badge" [ngClass]="'status-' + f.status">
+              {{ f.status === 'active' ? 'Aktiv' : (f.status === 'empty' ? 'Leer' : 'Lager') }}
+            </span>
+          </td>
+
+          <!-- Actions: Edit, Buy & Delete -->
+          <td style="text-align: right;">
+            <div class="table-actions-row">
+              <a 
+                *ngIf="f.buyUrl" 
+                [href]="f.buyUrl" 
+                target="_blank" 
+                class="btn-action btn-buy-filament" 
+                title="Filament im Shop öffnen / Nachbestellen"
+              >
+                🛒 Nachbestellen
+              </a>
+
+              <button 
+                (click)="startEdit(f, $event)" 
+                class="btn-action btn-edit-filament" 
+                title="Filament bearbeiten"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Bearbeiten
+              </button>
+
+              <button 
+                (click)="deleteFilament(f.id)" 
+                class="btn-action btn-delete-filament" 
+                title="Filament löschen"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"/>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                </svg>
+                Löschen
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Empty state row -->
+        <tr *ngIf="filteredFilaments.length === 0">
+          <td colspan="8" class="empty-table-cell">
+            <div class="empty-state-content">
+              <span class="empty-icon">🧶</span>
+              <p class="empty-text">
+                {{ filaments.length === 0 ? 'Keine Filament-Spulen vorhanden.' : 'Keine Filamente entsprechen den aktuellen Filtern.' }}
+              </p>
+              <button *ngIf="hasActiveFilters" (click)="resetFilters()" class="btn-secondary btn-sm">
+                Filter zurücksetzen
+              </button>
+              <button *ngIf="filaments.length === 0" (click)="toggleForm()" class="btn-secondary btn-sm">
+                Erstes Filament anlegen
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Interactive Lightbox / Modal Overlay for Filament Images -->
+  <div 
+    *ngIf="activeModalFilament && activeModalFilament.images && activeModalFilament.images.length > 0" 
+    class="lightbox-backdrop"
+    (click)="closeImageModal()"
+  >
+    <div class="lightbox-modal" (click)="$event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="lightbox-header">
+        <div class="lightbox-title-group">
+          <span class="color-dot-lg" [ngStyle]="getSwatchStyle(activeModalFilament)"></span>
+          <div>
+            <h4 class="lightbox-title">{{ activeModalFilament.manufacturer }} · {{ activeModalFilament.material?.name }}</h4>
+            <span class="lightbox-subtitle">{{ activeModalFilament.colorName }}</span>
+          </div>
+        </div>
+
+        <div class="lightbox-actions">
+          <span class="image-counter-pill" *ngIf="activeModalFilament.images.length > 1">
+            {{ activeModalImageIndex + 1 }} / {{ activeModalFilament.images.length }}
+          </span>
+
+          <button 
+            type="button" 
+            class="btn-lightbox-delete"
+            title="Dieses Bild löschen"
+            (click)="deleteImage(activeModalFilament, activeModalFilament.images[activeModalImageIndex].id, $event)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+            Bild löschen
+          </button>
+
+          <button type="button" class="btn-lightbox-close" (click)="closeImageModal()" title="Schließen (ESC)">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Image Viewport -->
+      <div class="lightbox-viewport">
+        <!-- Prev Button -->
+        <button 
+          *ngIf="activeModalFilament.images.length > 1" 
+          type="button" 
+          class="lightbox-nav-btn btn-prev"
+          (click)="prevModalImage($event)"
+          title="Vorheriges Bild (Pfeiltaste links)"
+        >
+          ❮
+        </button>
+
+        <!-- Main Image -->
+        <div class="lightbox-image-container">
+          <img 
+            [src]="getImageUrl(activeModalFilament.images[activeModalImageIndex].filePath)" 
+            [alt]="activeModalFilament.manufacturer + ' ' + (activeModalFilament.material?.name || '')" 
+            class="lightbox-main-img" 
+          />
+        </div>
+
+        <!-- Next Button -->
+        <button 
+          *ngIf="activeModalFilament.images.length > 1" 
+          type="button" 
+          class="lightbox-nav-btn btn-next"
+          (click)="nextModalImage($event)"
+          title="Nächstes Bild (Pfeiltaste rechts)"
+        >
+          ❯
+        </button>
+      </div>
+
+      <!-- Modal Footer Strip -->
+      <div class="lightbox-footer">
+        <!-- Thumbnails switcher -->
+        <div class="lightbox-thumb-strip" *ngIf="activeModalFilament.images.length > 1">
+          <div 
+            *ngFor="let img of activeModalFilament.images; let idx = index"
+            class="lightbox-thumb-item"
+            [class.active]="idx === activeModalImageIndex"
+            (click)="activeModalImageIndex = idx"
+          >
+            <img [src]="getImageUrl(img.filePath)" alt="Thumbnail" />
+          </div>
+        </div>
+
+        <div class="lightbox-hint">
+          Tipp: Du kannst mit <strong>ESC</strong> schließen und mit den <strong>Pfeiltasten (← / →)</strong> navigieren.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

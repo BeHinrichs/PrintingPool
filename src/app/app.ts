@@ -1,8 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { Header } from './layout/header/header';
+import { Footer } from './layout/footer/footer';
+import { Navigation } from './layout/navigation/navigation';
 
 @Component({
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, Header, Footer, Navigation],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -10,3 +13,5 @@ import { RouterOutlet } from '@angular/router';
 export class App {
   protected readonly title = signal('PPFrontend');
 }
+
+

@@ -1,0 +1,74 @@
+﻿<div class="templates-container" style="padding: 24px; max-width: 1200px; margin: 0 auto;">
+  <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+      <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1e293b;">Vorlagen-Bibliothek</h2>
+      <p style="margin: 4px 0 0; color: #64748b;">Sammlung deiner bevorzugten 3D-Modelle. Starte einen Druck direkt aus einer Vorlage.</p>
+    </div>
+    <button (click)="toggleForm()" style="background-color: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+      {{ showForm ? 'Abbrechen' : 'Vorlage hinzufügen' }}
+    </button>
+  </div>
+
+  <!-- Form for new Template -->
+  <div *ngIf="showForm" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">Neue Vorlage eintragen</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
+      <div>
+        <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Modell-Titel *</label>
+        <input [(ngModel)]="newTitle" placeholder="z.B. Tool Holder" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box;" />
+      </div>
+      <div>
+        <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">STL / Download-Link</label>
+        <input [(ngModel)]="newStlLink" placeholder="https://printables.com/..." style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box;" />
+      </div>
+      <div>
+        <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Bild-URL</label>
+        <input [(ngModel)]="newImageUrl" placeholder="https://example.com/image.jpg" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box;" />
+      </div>
+    </div>
+    <div style="margin-bottom: 16px;">
+      <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Beschreibung</label>
+      <textarea [(ngModel)]="newDescription" placeholder="Worum handelt es sich, welche Druckeinstellungen empfehlen sich?" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box; font-family: inherit;" rows="3"></textarea>
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button (click)="resetForm()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Abbrechen</button>
+      <button (click)="addTemplate()" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Speichern</button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" style="padding: 20px; color: #64748b;">Lädt Vorlagen...</div>
+  <div *ngIf="error" style="padding: 20px; color: #ef4444; background: #fee2e2; border-radius: 6px;">Fehler beim Laden der Vorlagen.</div>
+
+  <!-- Templates Cards Grid -->
+  <div *ngIf="!loading && !error" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+    <div *ngFor="let t of templates" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <!-- Placeholder visual or actual image -->
+        <div style="height: 160px; background-color: #f1f5f9; display: flex; align-items: center; justify-content: center; position: relative;">
+          <img *ngIf="t.imageUrl" [src]="t.imageUrl" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ t.title }}" />
+          <div *ngIf="!t.imageUrl" style="text-align: center; color: #94a3b8; font-size: 40px;">📦</div>
+        </div>
+        <div style="padding: 20px;">
+          <h4 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: #1e293b;">{{ t.title }}</h4>
+          <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.5; height: 60px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
+            {{ t.description || 'Keine Beschreibung vorhanden.' }}
+          </p>
+        </div>
+      </div>
+
+      <div style="padding: 20px; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 10px;">
+        <button (click)="createJobFromTemplate(t)" style="width: 100%; background-color: #10b981; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 500; cursor: pointer;">
+          🚀 In Warteschlange eintragen
+        </button>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <a *ngIf="t.stlLink" [href]="t.stlLink" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 13px; font-weight: 500;">🔗 Link öffnen</a>
+          <button (click)="deleteTemplate(t.id)" style="background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 13px; font-weight: 500;">Löschen</button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="templates.length === 0" style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 40px; background: white; border: 1px dashed #cbd5e1; border-radius: 8px;">
+      Keine Vorlagen vorhanden. Trage deine erste 3D-Modellvorlage oben ein!
+    </div>
+  </div>
+</div>

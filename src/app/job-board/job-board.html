@@ -1,0 +1,347 @@
+<div class="jobs-container">
+  <div class="page-header">
+    <div class="header-titles">
+      <h2>Druckaufträge (Job-Board)</h2>
+      <p>Organisiere und priorisiere deine Druckaufträge. Beim Verschieben nach „In Druck“ kannst du direkt 3MF/STL-Dateien speichern und in den Vorlagen hinterlegen.</p>
+    </div>
+  </div>
+
+  <!-- Formular zum Anlegen eines neuen Auftrags -->
+  <div class="add-job-card">
+    <div class="card-header-row">
+      <span class="card-icon">📝</span>
+      <h3>Neuen Druckwunsch eintragen</h3>
+    </div>
+    <form (ngSubmit)="addJob()" class="add-job-form">
+      <div class="form-group">
+        <label for="title">Titel / Name des Modells *</label>
+        <input type="text" id="title" [(ngModel)]="newJobTitle" name="title" placeholder="z.B. Hexagon Pflanztopf, Halterung, Benchy" required />
+      </div>
+
+      <div class="form-group">
+        <label for="link">Modell-Link (MakerWorld / Printables / STL-Link)</label>
+        <input type="url" id="link" [(ngModel)]="newJobLink" name="link" placeholder="https://makerworld.com/de/models/..." />
+      </div>
+
+      <div class="form-group">
+        <label for="filament">Gewünschtes Filament</label>
+        <select id="filament" [(ngModel)]="selectedFilamentId" name="filament">
+          <option [value]="null">-- Bitte wählen (optional) --</option>
+          <option *ngFor="let f of filaments" [value]="f.id">
+            {{ f.manufacturer }} {{ f.material?.name || f.material }} ({{ f.colorName }})
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="timeNeeded">Geschätzte Dauer</label>
+        <input type="text" id="timeNeeded" [(ngModel)]="newJobTimeNeeded" name="timeNeeded" placeholder="z.B. 2h 15m" />
+      </div>
+
+      <div class="form-group full-width">
+        <label for="notes">Spezielle Wünsche / Notizen</label>
+        <textarea id="notes" [(ngModel)]="newJobNotes" name="notes" placeholder="z.B. Bitte 3x ausdrucken, Füllung 20%, 3 Wände etc." rows="2"></textarea>
+      </div>
+
+      <div class="form-actions full-width">
+        <button type="submit" class="btn-submit-job" [disabled]="!newJobTitle.trim()">
+          <span>➕</span> Druckwunsch hinzufügen
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Kanban Board mit Drag & Drop -->
+  <div class="board-grid" cdkDropListGroup>
+
+    <!-- 1. Warteschlange -->
+    <div class="board-column col-queue">
+      <div class="column-header">
+        <div class="col-title-group">
+          <span class="col-icon">⏳</span>
+          <h3>Warteschlange ({{ queue.length }})</h3>
+        </div>
+        <span class="column-subtitle">Sortieren: Oben = Höchste Priorität</span>
+      </div>
+
+      <div
+        id="queueList"
+        cdkDropList
+        [cdkDropListData]="queue"
+        (cdkDropListDropped)="drop($event)"
+        class="column-content"
+      >
+        <div *ngFor="let job of queue" class="job-card" cdkDrag>
+          <div class="job-header">
+            <span class="job-id">{{ job.formattedId }}</span>
+            <span class="drag-handle" title="Ziehen zum Verschieben">⠿</span>
+          </div>
+
+          <div class="job-title">{{ job.title }}</div>
+
+          <a *ngIf="job.stlLink" [href]="job.stlLink.startsWith('/') ? getImageUrl(job.stlLink) : job.stlLink" target="_blank" class="job-link">
+            🔗 {{ job.fileName ? job.fileName : 'Modell-Link öffnen' }}
+          </a>
+
+          <div *ngIf="job.filament" class="job-filament">
+            <span class="color-indicator-dot" [style.background-color]="job.filament.colorHex"></span>
+            {{ job.filament.manufacturer }} {{ job.filament.material?.name || job.filament.material }} ({{ job.filament.colorName }})
+          </div>
+
+          <p *ngIf="job.notes" class="job-notes">💬 "{{ job.notes }}"</p>
+          
+          <div class="job-card-footer">
+            <button 
+              type="button" 
+              class="btn-start-print-card" 
+              (click)="openStartPrintModal(job)"
+              title="Druck starten & 3MF/STL hochladen"
+            >
+              🚀 In Druck geben
+            </button>
+            <button (click)="deleteJob(job.id)" class="btn-delete-job" title="Löschen">Löschen</button>
+          </div>
+        </div>
+
+        <div *ngIf="queue.length === 0" class="empty-placeholder">Keine ausstehenden Wünsche.</div>
+      </div>
+    </div>
+
+    <!-- 2. In Bearbeitung / In Druck -->
+    <div class="board-column col-active">
+      <div class="column-header">
+        <div class="col-title-group">
+          <span class="col-icon">⚙️</span>
+          <h3>In Druck ({{ active.length }})</h3>
+        </div>
+        <span class="column-subtitle">Aktive Drucke auf den Druckern</span>
+      </div>
+
+      <div
+        id="activeList"
+        cdkDropList
+        [cdkDropListData]="active"
+        (cdkDropListDropped)="drop($event)"
+        class="column-content"
+      >
+        <div *ngFor="let job of active" class="job-card printing" cdkDrag>
+          <div class="job-header">
+            <span class="job-id">{{ job.formattedId }}</span>
+            <span class="badge-printing-pulse">Druckt</span>
+            <span class="drag-handle" title="Ziehen zum Verschieben">⠿</span>
+          </div>
+
+          <div class="job-title">{{ job.title }}</div>
+
+          <!-- Drucker-Zuweisung -->
+          <div class="job-printer-selector">
+            <span class="printer-icon">🖨️</span>
+            <select [ngModel]="job.printer?.id" (ngModelChange)="assignPrinter(job, $event)" class="select-printer-inline">
+              <option [value]="null">-- Drucker zuweisen --</option>
+              <option *ngFor="let p of printers" [value]="p.id">{{ p.name }} ({{ p.status }})</option>
+            </select>
+          </div>
+
+          <!-- Uploaded Model File / Link -->
+          <div *ngIf="job.stlLink" class="job-model-file-badge">
+            <span class="file-icon">📦</span>
+            <a [href]="job.stlLink.startsWith('/') ? getImageUrl(job.stlLink) : job.stlLink" target="_blank" download class="file-download-link" [title]="job.fileName || 'Datei herunterladen'">
+              {{ job.fileName ? job.fileName : '3MF/STL Datei' }} ⤓
+            </a>
+          </div>
+
+          <div *ngIf="job.filament" class="job-filament">
+            <span class="color-indicator-dot" [style.background-color]="job.filament.colorHex"></span>
+            {{ job.filament.manufacturer }} {{ job.filament.material?.name || job.filament.material }} ({{ job.filament.colorName }})
+          </div>
+
+          <!-- Fortschrittsbalken -->
+          <div class="job-progress">
+            <div class="progress-bar" [style.width.%]="job.progress"></div>
+          </div>
+
+          <div class="job-progress-control">
+            <input type="range" min="0" max="100" [ngModel]="job.progress" (change)="updateProgress(job, pInput.value)" #pInput class="progress-slider" />
+            <span class="progress-pct">{{ job.progress }}%</span>
+          </div>
+
+          <div class="job-meta">
+            <span *ngIf="job.timeNeeded">⏱️ Dauer: {{ job.timeNeeded }}</span>
+          </div>
+
+          <p *ngIf="job.notes" class="job-notes">💬 "{{ job.notes }}"</p>
+          
+          <div class="job-card-footer">
+            <button (click)="openStartPrintModal(job)" class="btn-replace-file" title="3MF / STL Datei anhängen oder austauschen">
+              📎 Datei anhängen
+            </button>
+            <button (click)="deleteJob(job.id)" class="btn-delete-job">Löschen</button>
+          </div>
+        </div>
+
+        <div *ngIf="active.length === 0" class="empty-placeholder">Kein Drucker arbeitet gerade. Ziehe Aufträge hierher!</div>
+      </div>
+    </div>
+
+    <!-- 3. Abgeschlossen -->
+    <div class="board-column col-done">
+      <div class="column-header">
+        <div class="col-title-group">
+          <span class="col-icon">✅</span>
+          <h3>Abgeschlossen ({{ completed.length }})</h3>
+        </div>
+        <span class="column-subtitle">Fertig gedruckte Modelle</span>
+      </div>
+
+      <div
+        id="completedList"
+        cdkDropList
+        [cdkDropListData]="completed"
+        (cdkDropListDropped)="drop($event)"
+        class="column-content"
+      >
+        <div *ngFor="let job of completed" class="job-card done" cdkDrag>
+          <div class="job-header">
+            <span class="job-id">{{ job.formattedId }}</span>
+            <span class="badge-done">Fertig</span>
+            <span class="drag-handle">⠿</span>
+          </div>
+
+          <div class="job-title">{{ job.title }}</div>
+
+          <div *ngIf="job.printer" class="job-printer-info">
+            🖨️ Gedruckt auf: <strong>{{ job.printer.name }}</strong>
+          </div>
+
+          <!-- Model File Link if saved -->
+          <div *ngIf="job.stlLink" class="job-model-file-badge">
+            <span class="file-icon">📦</span>
+            <a [href]="job.stlLink.startsWith('/') ? getImageUrl(job.stlLink) : job.stlLink" target="_blank" download class="file-download-link">
+              {{ job.fileName ? job.fileName : '3MF/STL Datei' }} ⤓
+            </a>
+          </div>
+
+          <div *ngIf="job.filament" class="job-filament">
+            <span class="color-indicator-dot" [style.background-color]="job.filament.colorHex"></span>
+            {{ job.filament.manufacturer }} {{ job.filament.material?.name || job.filament.material }} ({{ job.filament.colorName }})
+          </div>
+
+          <div class="job-meta">
+            <span>Status: Abholbereit</span>
+            <span *ngIf="job.timeNeeded">⏱️ Dauer: {{ job.timeNeeded }}</span>
+          </div>
+
+          <p *ngIf="job.notes" class="job-notes">💬 "{{ job.notes }}"</p>
+          
+          <div class="job-card-footer">
+            <button (click)="deleteJob(job.id)" class="btn-delete-job">Löschen</button>
+          </div>
+        </div>
+
+        <div *ngIf="completed.length === 0" class="empty-placeholder">Bisher noch keine fertigen Drucke.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Druck starten & 3MF / STL Datei hochladen & In Vorlagen eintragen -->
+  <div *ngIf="showStartPrintModal && pendingJob" class="modal-backdrop" (click)="closeStartPrintModal(true)">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🚀</span>
+          <div>
+            <h3>Druck starten: {{ pendingJob.title }}</h3>
+            <p class="modal-subtitle">Lade die 3MF- oder STL-Datei hoch, um sie auf dem Server zu sichern und in den Vorlagen zu hinterlegen.</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" (click)="closeStartPrintModal(true)">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Error Banner -->
+        <div *ngIf="modalError" class="modal-error-banner">
+          ⚠️ {{ modalError }}
+        </div>
+
+        <!-- Printer Selector -->
+        <div class="modal-form-group">
+          <label for="modal-printer-select">Drucker auswählen:</label>
+          <select id="modal-printer-select" [(ngModel)]="modalPrinterId" class="modal-select">
+            <option [value]="null">-- Später zuweisen / Ohne Drucker --</option>
+            <option *ngFor="let p of printers" [value]="p.id">
+              {{ p.name }} ({{ p.model || 'Standard' }}) - Status: {{ p.status }}
+            </option>
+          </select>
+        </div>
+
+        <!-- 3MF / STL File Dropzone -->
+        <div class="modal-form-group">
+          <label>Druckdatei (.3mf / .stl / .gcode / .step):</label>
+          
+          <div 
+            class="modal-dropzone" 
+            [class.dragging]="modalIsDragging"
+            [class.has-file]="modalFile !== null"
+            (dragover)="onModalDragOver($event)"
+            (dragleave)="onModalDragLeave($event)"
+            (drop)="onModalDrop($event)"
+            (click)="modalFileInput.click()"
+          >
+            <input 
+              #modalFileInput 
+              type="file" 
+              accept=".3mf,.stl,.gcode,.step,.stp,.obj"
+              (change)="onModalFileSelected($event)" 
+              style="display: none;" 
+            />
+
+            <!-- Empty Dropzone State -->
+            <div *ngIf="!modalFile" class="dropzone-empty-state">
+              <div class="dropzone-icon">📦</div>
+              <span class="dropzone-primary">3MF- oder STL-Datei hierher ziehen oder <span class="highlight">durchsuchen</span></span>
+              <span class="dropzone-secondary">Unterstützte Formate: .3mf, .stl, .gcode, .step (wird auf Server gespeichert)</span>
+            </div>
+
+            <!-- Selected File State -->
+            <div *ngIf="modalFile" class="dropzone-file-state" (click)="$event.stopPropagation()">
+              <div class="file-icon-box">📄</div>
+              <div class="file-details">
+                <span class="file-name">{{ modalFile.name }}</span>
+                <span class="file-size">{{ (modalFile.size / 1024 / 1024).toFixed(2) }} MB</span>
+              </div>
+              <button type="button" class="btn-remove-file" (click)="removeModalFile()" title="Datei entfernen">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Checkbox: Save to Template Library -->
+        <div class="modal-checkbox-row">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="modalCreateTemplate" />
+            <span class="checkbox-custom"></span>
+            <span class="checkbox-text">
+              <strong>Automatisch als Vorlage speichern</strong>
+              <small>Fügt dieses Modell inklusive Datei zur Vorlagen-Bibliothek hinzu, um es jederzeit erneut zu drucken.</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" (click)="closeStartPrintModal(true)" [disabled]="modalUploading">
+          Abbrechen
+        </button>
+        <button 
+          type="button" 
+          class="btn-modal-submit" 
+          (click)="confirmStartPrint()" 
+          [disabled]="modalUploading"
+        >
+          <span *ngIf="modalUploading" class="spinner"></span>
+          <span>{{ modalUploading ? 'Wird gespeichert...' : (modalFile ? '🚀 Druck starten & Vorlage erstellen' : '▶️ Ohne Datei starten') }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
