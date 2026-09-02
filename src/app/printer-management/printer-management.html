@@ -1,29 +1,30 @@
-﻿<div class="printers-container" style="padding: 24px; max-width: 1200px; margin: 0 auto;">
-  <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-    <div>
-      <h2 style="margin: 0; font-size: 24px; font-weight: 600; color: #1e293b;">Drucker-Verwaltung</h2>
-      <p style="margin: 4px 0 0; color: #64748b;">Verwalte deine 3D-Drucker-Flotte und deren aktuellen Betriebsstatus.</p>
+<div class="printers-container">
+  <div class="page-header">
+    <div class="header-titles">
+      <h2>Drucker-Verwaltung</h2>
+      <p>Verwalte deine 3D-Drucker-Flotte und deren aktuellen Betriebsstatus.</p>
     </div>
-    <button (click)="toggleForm()" style="background-color: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+    <button (click)="toggleForm()" class="btn-add-printer">
+      <span>{{ showForm ? '✕' : '＋' }}</span>
       {{ showForm ? 'Abbrechen' : 'Drucker hinzufügen' }}
     </button>
   </div>
 
   <!-- Form for new Printer -->
-  <div *ngIf="showForm" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-    <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">Neuen Drucker registrieren</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
-      <div>
-        <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Name / Alias *</label>
-        <input [(ngModel)]="newName" placeholder="z.B. Prusa i3 MK3S" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box;" />
+  <div *ngIf="showForm" class="printer-form-card">
+    <h3>Neuen Drucker registrieren</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="p-name">Name / Alias *</label>
+        <input id="p-name" [(ngModel)]="newName" placeholder="z.B. Prusa i3 MK3S" />
       </div>
-      <div>
-        <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Modell / Typ</label>
-        <input [(ngModel)]="newModel" placeholder="z.B. MK3S+, X1C, Voron 2.4" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box;" />
+      <div class="form-group">
+        <label for="p-model">Modell / Typ</label>
+        <input id="p-model" [(ngModel)]="newModel" placeholder="z.B. MK3S+, X1C, Voron 2.4" />
       </div>
-      <div>
-        <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 6px;">Status</label>
-        <select [(ngModel)]="newStatus" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; box-sizing: border-box;">
+      <div class="form-group">
+        <label for="p-status">Status</label>
+        <select id="p-status" [(ngModel)]="newStatus">
           <option value="idle">Bereit (Idle)</option>
           <option value="printing">Druckt (Printing)</option>
           <option value="maintenance">Wartung (Maintenance)</option>
@@ -31,43 +32,43 @@
         </select>
       </div>
     </div>
-    <div style="display: flex; justify-content: flex-end; gap: 8px;">
-      <button (click)="resetForm()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Abbrechen</button>
-      <button (click)="addPrinter()" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Speichern</button>
+    <div class="form-actions">
+      <button type="button" (click)="resetForm()" class="btn-cancel">Abbrechen</button>
+      <button type="button" (click)="addPrinter()" class="btn-save" [disabled]="!newName.trim()">Speichern</button>
     </div>
   </div>
 
-  <div *ngIf="loading" style="padding: 20px; color: #64748b;">Lädt Drucker...</div>
-  <div *ngIf="error" style="padding: 20px; color: #ef4444; background: #fee2e2; border-radius: 6px;">Fehler beim Laden der Drucker.</div>
+  <div *ngIf="loading" class="state-box loading">Lädt Drucker...</div>
+  <div *ngIf="error" class="state-box error">Fehler beim Laden der Drucker.</div>
 
   <!-- Printers Cards Grid -->
-  <div *ngIf="!loading && !error" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
-    <div *ngFor="let p of printers" style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid #cbd5e1;" [style.border-top-color]="p.status === 'printing' ? '#ef4444' : (p.status === 'idle' ? '#22c55e' : (p.status === 'maintenance' ? '#f59e0b' : '#64748b'))">
+  <div *ngIf="!loading && !error" class="printers-cards-grid">
+    <div *ngFor="let p of printers" class="printer-card" [ngClass]="'status-' + p.status">
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-          <h4 style="margin: 0; font-size: 18px; font-weight: 600; color: #1e293b;">{{ p.name }}</h4>
-          <span style="font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 500;" [style.background-color]="p.status === 'printing' ? '#fee2e2' : (p.status === 'idle' ? '#dcfce7' : (p.status === 'maintenance' ? '#fef3c7' : '#f1f5f9'))" [style.color]="p.status === 'printing' ? '#ef4444' : (p.status === 'idle' ? '#22c55e' : (p.status === 'maintenance' ? '#b45309' : '#475569'))">
+        <div class="card-header-row">
+          <h4 class="printer-name">{{ p.name }}</h4>
+          <span class="status-badge" [ngClass]="'badge-' + p.status">
             {{ p.status === 'printing' ? 'Druckt' : (p.status === 'idle' ? 'Bereit' : (p.status === 'maintenance' ? 'Wartung' : 'Offline')) }}
           </span>
         </div>
-        <p *ngIf="p.model" style="margin: 0 0 16px; color: #64748b; font-size: 14px;">Modell: {{ p.model }}</p>
+        <p *ngIf="p.model" class="printer-model-text">Modell: {{ p.model }}</p>
       </div>
 
-      <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <label style="font-size: 12px; color: #64748b;">Status:</label>
-          <select [ngModel]="p.status" (ngModelChange)="updateStatus(p, $event)" style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 4px; font-size: 12px; background: white;">
+      <div class="card-footer-row">
+        <div class="status-change-group">
+          <label>Status:</label>
+          <select [ngModel]="p.status" (ngModelChange)="updateStatus(p, $event)">
             <option value="idle">Bereit</option>
             <option value="printing">Druckt</option>
             <option value="maintenance">Wartung</option>
             <option value="offline">Offline</option>
           </select>
         </div>
-        <button (click)="deletePrinter(p.id)" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 4px; font-size: 12px; font-weight: 500;">Löschen</button>
+        <button (click)="deletePrinter(p.id)" class="btn-delete-printer">Löschen</button>
       </div>
     </div>
 
-    <div *ngIf="printers.length === 0" style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 40px; background: white; border: 1px dashed #cbd5e1; border-radius: 8px;">
+    <div *ngIf="printers.length === 0" class="empty-state">
       Keine Drucker registriert. Füge deinen ersten Drucker oben hinzu!
     </div>
   </div>

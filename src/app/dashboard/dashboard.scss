@@ -106,6 +106,15 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 1.25rem;
+
+    @media (max-width: 600px) {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    @media (max-width: 400px) {
+      grid-template-columns: 1fr;
+    }
   }
 
   .metric-card {
@@ -117,6 +126,10 @@
     position: relative;
     overflow: hidden;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    @media (max-width: 600px) {
+      padding: 1rem;
+    }
 
     &.clickable {
       cursor: pointer;

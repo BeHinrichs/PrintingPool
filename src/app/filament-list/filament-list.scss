@@ -1778,3 +1778,107 @@
     transform: scale(1);
   }
 }
+
+// --- Responsive Styles for Mobile & Tablet ---
+@media (max-width: 768px) {
+  .filaments-container {
+    gap: 1rem;
+
+    .page-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+
+      .btn-primary {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    .filter-toolbar-card {
+      padding: 1rem;
+
+      .search-and-presets-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+
+        .search-input-wrapper {
+          min-width: unset;
+          width: 100%;
+        }
+
+        .filter-selects-group {
+          flex-direction: column;
+          width: 100%;
+
+          .filter-select {
+            width: 100%;
+          }
+        }
+      }
+
+      .material-filter-chips {
+        flex-wrap: wrap;
+      }
+    }
+
+    .filament-form-card {
+      padding: 1rem;
+
+      .form-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .parameters-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .color-slots-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .standard-colors-palette {
+        .color-chips-row {
+          flex-wrap: wrap;
+        }
+      }
+
+      .form-actions {
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
+
+    .filament-list-card {
+      -webkit-overflow-scrolling: touch;
+      border-radius: 0.5rem;
+    }
+
+    .filament-modal-backdrop {
+      padding: 0.75rem;
+
+      .filament-modal-card {
+        max-width: 100%;
+        width: 100%;
+        max-height: 90vh;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .filaments-container {
+    .table-actions-row {
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+    }
+  }
+}
+

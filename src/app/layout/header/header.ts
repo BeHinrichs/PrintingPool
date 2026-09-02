@@ -1,9 +1,17 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { NavService } from '../../services/nav.service';
 
 @Component({
-  imports: [],
+  imports: [CommonModule],
   selector: 'app-header',
   styleUrl: './header.scss',
   templateUrl: './header.html',
 })
-export class Header {}
+export class Header {
+  navService = inject(NavService);
+
+  toggleMenu() {
+    this.navService.toggleMobileNav();
+  }
+}

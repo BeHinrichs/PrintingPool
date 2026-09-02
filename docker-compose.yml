@@ -1,0 +1,18 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: printingpool-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      printingpool-net:
+        aliases:
+          - frontend
+          - printingpool-frontend
+
+networks:
+  printingpool-net:
+    name: printingpool-net

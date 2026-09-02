@@ -1,9 +1,26 @@
 <header class="app-header">
-  <div class="header-logo">
-    <span class="logo-icon">🖨️</span>
-    <h1 class="logo-text">PrintingPool</h1>
+  <div class="header-left">
+    <!-- Mobile Hamburger Toggle Button -->
+    <button 
+      type="button" 
+      class="mobile-menu-btn" 
+      (click)="toggleMenu()" 
+      [attr.aria-label]="navService.isMobileNavOpen() ? 'Menü schließen' : 'Menü öffnen'"
+    >
+      <span class="hamburger-icon" [class.open]="navService.isMobileNavOpen()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </button>
+
+    <div class="header-logo">
+      <span class="logo-icon">🖨️</span>
+      <h1 class="logo-text">PrintingPool</h1>
+    </div>
   </div>
+
   <div class="header-actions">
-    <span class="user-profile">👋 Willkommen, Operator</span>
+    <span class="user-profile">👋 <span class="hide-on-mobile">Willkommen, </span>Operator</span>
   </div>
 </header>

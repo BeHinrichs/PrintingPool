@@ -2,7 +2,17 @@
   <app-header class="app-header-container"></app-header>
 
   <div class="app-body">
-    <app-navigation class="app-sidebar-container"></app-navigation>
+    <!-- Backdrop overlay for mobile drawer -->
+    <div 
+      class="mobile-nav-backdrop" 
+      [class.active]="navService.isMobileNavOpen()" 
+      (click)="navService.closeMobileNav()"
+    ></div>
+
+    <app-navigation 
+      class="app-sidebar-container" 
+      [class.mobile-open]="navService.isMobileNavOpen()"
+    ></app-navigation>
 
     <main class="app-content">
       <div class="router-content">
